@@ -1,1 +1,1 @@
-# PTTKGT_Group-6
+# PTTKGT_Group 6
