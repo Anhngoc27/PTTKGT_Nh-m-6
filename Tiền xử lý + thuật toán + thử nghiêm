@@ -1,0 +1,185 @@
+#đọc dataset
+def read_dimacs_vertex_cover(file_path):
+    vertices = set()
+    edges = []
+    with open(file_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            # bỏ comment (bắt đầu ='c') hoặc dòng rỗng
+            if not line or line.startswith('c'):
+                continue
+            parts = line.split()
+            # dòng mô tả bài toán
+            #p:số đỉnh
+            #edge: số cạnh
+            if parts[0] == 'p':
+                n = int(parts[2])     # số lượng đỉnh
+                vertices = set(range(1, n + 1))
+            # dòng mô tả cạnh: e u v
+            elif parts[0] == 'e':
+                u = int(parts[1])
+                v = int(parts[2])
+                edges.append((u, v))
+    return vertices, edges
+
+#làm sạch dữ liệu
+def clean_vertex_cover_data(vertices, edges):
+    valid_edges = set()
+    for u, v in edges:
+        # loại bỏ cạnh chứa đỉnh không tồn tại
+        if u not in vertices or v not in vertices:
+            continue
+        # loại self-loop (u=v)
+        if u == v:
+            continue
+        # loại cạnh trùng
+        edge = tuple(sorted((u, v)))
+        valid_edges.add(edge)
+    return list(valid_edges)
+#chọn cột cần thiết
+def select_columns_vertex_cover(edges):
+    return [(u, v) for u, v in edges]
+#chuẩn hóa dữ liệu
+def normalize_data(edges):
+    return edges
+
+class Graph:
+    def __init__(self, vertices, edges):
+        self.V = list(vertices)   # tập đỉnh
+        self.E = edges            # danh sách cạnh (u, v)
+
+def load_dataset(file_path):
+    vertices, edges = read_dimacs_vertex_cover(file_path)
+    edges = clean_vertex_cover_data(vertices, edges)
+    edges = select_columns_vertex_cover(edges)
+    edges = normalize_data(edges)
+    return Graph(vertices, edges)
+
+#Brute force
+import itertools
+def is_vertex_cover(graph, cover):
+    # Kiểm tra tập cover có bao phủ tất cả các cạnh hay không
+    for (u, v) in graph.E: 
+        if u not in cover and v not in cover:
+            return False
+    return True
+def brute_force_vertex_cover(graph):
+    V = graph.V
+    best_cover = set(V)
+    # Duyệt tất cả các tập con của V
+    for r in range(len(V) + 1):
+        for subset in itertools.combinations(V, r):
+            subset = set(subset)
+            if is_vertex_cover(graph, subset):
+                if len(subset) < len(best_cover):
+                    best_cover = subset
+        if len(best_cover) == r:
+            break
+    return best_cover
+
+#Greedy
+def greedy_vertex_cover(graph):
+    E = graph.E.copy()
+    cover = set()
+    while E:
+        degree = {}
+        # Tính bậc của từng đỉnh
+        for (u, v) in E:
+            degree[u] = degree.get(u, 0) + 1
+            degree[v] = degree.get(v, 0) + 1
+        # Chọn đỉnh có bậc lớn nhất
+        v = max(degree, key=degree.get)
+        cover.add(v)
+        # Loại các cạnh được bao phủ
+        E = [(x, y) for (x, y) in E if x != v and y != v]
+    return cover
+
+#dynamic programming (chỉ áp dụng cho cây)
+from collections import defaultdict
+def tree_vertex_cover(adj, root):
+    visited = set()
+    def dfs(u):
+        visited.add(u)
+        dp0, dp1 = 0, 1 #dp0: u không chọn; dp1: u được chọn
+        for v in adj[u]:
+            if v not in visited:
+                c0, c1 = dfs(v)
+                dp1 += min(c0, c1)
+                dp0 += c1
+        return dp0, dp1
+    return min(dfs(root))
+#chuyển danh sách cạnh sang danh sách kề
+def build_adj_list(graph):
+    adj = {v: [] for v in graph.V}
+    for u, v in graph.E:
+        adj[u].append(v)
+        adj[v].append(u)
+    return adj
+def dp_vertex_cover(graph):
+    adj = build_adj_list(graph)
+    return tree_vertex_cover(adj, graph.V[0])
+
+
+#Approximation 2-Approximation
+def approximation_vertex_cover(graph):
+    E = graph.E.copy()
+    cover = set()
+    while E:
+        u, v = E.pop()
+        cover.add(u)
+        cover.add(v)
+        # Loại các cạnh được bao phủ
+        E = [(x, y) for (x, y) in E
+             if x not in (u, v) and y not in (u, v)]
+    return cover
+
+#đo thời gian chạy
+import time
+def measure_time(func, graph):
+    start = time.perf_counter()
+    result = func(graph)
+    end = time.perf_counter()
+    return result, end - start
+def print_result(name, size, run_time):
+    print(f"{name}:")
+    print(f"  Size: {size}, Time: {run_time*1000:.4f} ms")
+
+    
+#test dữ liệu
+def test(file_path):
+    graph = load_dataset(file_path)
+    print("Vertices:", len(graph.V))
+    print("Edges:", len(graph.E))
+    print("-" * 40)
+
+    # Brute force (chỉ đồ thị nhỏ)
+    if len(graph.V) <= 20:
+        bf_res, bf_time = measure_time(brute_force_vertex_cover, graph)
+        print_result("Brute Force", len(bf_res), bf_time)
+    else:
+        print("Brute Force: không áp dụng cho đồ thị này")
+
+    # Greedy
+    greedy_res, greedy_time = measure_time(greedy_vertex_cover, graph)
+    print_result("Greedy", len(greedy_res), greedy_time)
+
+    # Dynamic Programming (chỉ cây)
+    if len(graph.E) == len(graph.V) - 1:
+        dp_res, dp_time = measure_time(dp_vertex_cover, graph)
+        print_result("Dynamic Programming (Tree)", dp_res, dp_time)
+    else:
+        print("Dynamic Programming: không áp dụng cho đồ thị này")
+
+    # Approximation
+    approx_res, approx_time = measure_time(approximation_vertex_cover, graph)
+    print_result("Approximation", len(approx_res), approx_time)
+
+    print("=" * 40)
+
+
+test("dsjc250.5.col.txt")
+test("dsjc500.1.col.txt")
+test("flat300_28_0.col.txt")
+test("tree.txt")
+test("tree01.txt")
+test("tree02.txt")
