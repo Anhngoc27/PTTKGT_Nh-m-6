@@ -1,0 +1,13 @@
+c Small Tree Graph
+p edge 12 11
+e 1 2
+e 1 3
+e 2 4
+e 2 5
+e 3 6
+e 3 7
+e 4 8
+e 4 9
+e 5 10
+e 6 11
+e 6 12
